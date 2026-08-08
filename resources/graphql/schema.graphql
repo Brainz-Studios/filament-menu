@@ -1,0 +1,43 @@
+# Host must provide LocalizedString (and optionally SeoAttributes) types used below.
+# Define union MenuLinkable with your content types, e.g.:
+#   union MenuLinkable @union(resolveType: "BrainzStudios\\FilamentMenu\\GraphQL\\Unions\\MenuLinkable") =
+#       Page | Department | ...
+
+extend type Query {
+    menuItems: [MenuItem!]!
+        @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Queries\\MenuItems@__invoke")
+}
+
+type MenuItem {
+    id: ID!
+    parent_id: ID
+    parent: MenuItem @belongsTo
+    children: [MenuItem!]! @hasMany(relation: "children", scopes: ["published"])
+    label: String!
+    slug: LocalizedString
+    type: String!
+    link: String!
+    url: String @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveMenuPath")
+    linkable: MenuLinkable @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveMenuLinkable")
+    target: String!
+    sort_order: Int!
+    is_published: Boolean!
+    created_at: DateTime!
+    updated_at: DateTime!
+}
+
+type MenuNode {
+    id: ID!
+    label: String!
+    slug: LocalizedString
+    menu_url: String @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveEntityMenuUrl")
+    breadcrumbs: Breadcrumbs! @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveEntityBreadcrumbs")
+    children: [MenuItem!]! @hasMany(relation: "children", scopes: ["published"])
+    is_published: Boolean!
+    created_at: DateTime!
+    updated_at: DateTime!
+}
+
+# Attach on content types in the host schema:
+#   menu_url: String @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveEntityMenuUrl")
+#   breadcrumbs: Breadcrumbs! @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveEntityBreadcrumbs")

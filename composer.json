@@ -1,0 +1,36 @@
+{
+    "name": "brainz-studios/filament-menu",
+    "description": "Filament menu management with path building, global slug guard, and GraphQL.",
+    "type": "library",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Brainz Studios",
+            "email": "hello@brainzstudios.cz"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "filament/filament": "^5.0",
+        "illuminate/database": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "nuwave/lighthouse": "^6.0",
+        "spatie/laravel-package-tools": "^1.16",
+        "spatie/laravel-translatable": "^6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "BrainzStudios\\FilamentMenu\\": "src/",
+            "BrainzStudios\\FilamentMenu\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "BrainzStudios\\FilamentMenu\\FilamentMenuServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
