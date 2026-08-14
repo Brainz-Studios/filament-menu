@@ -59,6 +59,7 @@ return [
         'label' => 'Popisek',
         'slug' => 'Slug',
         'link_type' => 'Typ odkazu',
+        'linkable_type' => 'Datový typ',
         'link_target' => 'Cíl odkazu',
         'url' => 'URL',
         'target_window' => 'Cílové okno',

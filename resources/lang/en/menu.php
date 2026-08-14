@@ -59,6 +59,7 @@ return [
         'label' => 'Label',
         'slug' => 'Slug',
         'link_type' => 'Link type',
+        'linkable_type' => 'Content type',
         'link_target' => 'Link target',
         'url' => 'URL',
         'target_window' => 'Target window',

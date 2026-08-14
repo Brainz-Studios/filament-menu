@@ -51,6 +51,17 @@ final class LinkableRegistry
         return $modelClass !== null ? class_basename($modelClass) : null;
     }
 
+    public function labelFor(string $type): string
+    {
+        $label = __('filament-menu::menu.groups.'.$type);
+
+        if ($label === 'filament-menu::menu.groups.'.$type) {
+            return str_replace('_', ' ', ucfirst($type));
+        }
+
+        return $label;
+    }
+
     /**
      * @return list<string>
      */

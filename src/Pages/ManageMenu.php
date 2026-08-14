@@ -7,6 +7,7 @@ use BrainzStudios\FilamentMenu\Forms\Components\TranslatableTabs;
 use BrainzStudios\FilamentMenu\Support\AutoSlug;
 use BrainzStudios\FilamentMenu\Models\MenuItem;
 use BrainzStudios\FilamentMenu\Services\GlobalSlugGuard;
+use BrainzStudios\FilamentMenu\Services\LinkableRegistry;
 use BrainzStudios\FilamentMenu\Services\MenuPathBuilder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -14,6 +15,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
@@ -65,6 +67,7 @@ class ManageMenu extends Page
     {
         $this->form->fill([
             'type' => 'internal',
+            'linkable_type' => null,
             'target' => '_self',
             'is_published' => true,
         ]);
@@ -104,13 +107,29 @@ class ManageMenu extends Page
                     ])
                     ->default(MenuItem::TYPE_INTERNAL)
                     ->required()
-                    ->live(),
+                    ->live()
+                    ->afterStateUpdated(function (Set $set): void {
+                        $set('linkable_type', null);
+                        $set('link', null);
+                    }),
+                Select::make('linkable_type')
+                    ->label(__('filament-menu::menu.fields.linkable_type'))
+                    ->options(fn (): array => $this->linkableTypeOptions())
+                    ->required()
+                    ->live()
+                    ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL)
+                    ->dehydrated(false)
+                    ->afterStateUpdated(function (Set $set): void {
+                        $set('link', null);
+                    }),
                 Select::make('link')
                     ->label(__('filament-menu::menu.fields.link_target'))
-                    ->options(fn (): array => $this->internalLinkOptions())
+                    ->options(fn (Get $get): array => $this->internalLinkOptions(
+                        is_string($get('linkable_type')) ? $get('linkable_type') : null,
+                    ))
                     ->searchable()
                     ->required()
-                    ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL)
+                    ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL && filled($get('linkable_type')))
                     ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL),
                 TextInput::make('link')
                     ->label(__('filament-menu::menu.fields.url'))
@@ -186,6 +205,7 @@ class ManageMenu extends Page
             'seo_og_type' => $item->seo_og_type?->value,
             'seo_twitter_card' => $item->seo_twitter_card?->value,
             'type' => $item->type,
+            'linkable_type' => MenuItem::parseInternalLink($item->link)['type'] ?? null,
             'link' => $item->link,
             'target' => $item->target,
             'is_published' => $item->is_published,
@@ -260,6 +280,7 @@ class ManageMenu extends Page
         $this->form->fill([
             'parent_id' => $parentId,
             'type' => 'internal',
+            'linkable_type' => null,
             'target' => '_self',
             'is_published' => true,
         ]);
@@ -472,6 +493,7 @@ class ManageMenu extends Page
             'is_published' => true,
             'parent_id' => null,
             'label' => ['cs' => '', 'en' => ''],
+            'linkable_type' => null,
             'link' => null,
         ]);
     }
@@ -547,17 +569,36 @@ class ManageMenu extends Page
     }
 
     /**
-     * @return array<string, array<string, string>>
+     * @return array<string, string>
      */
-    protected function internalLinkOptions(): array
+    protected function linkableTypeOptions(): array
     {
+        $registry = app(LinkableRegistry::class);
+        $options = [];
+
+        foreach ($registry->types() as $type) {
+            $options[$type] = $registry->labelFor($type);
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function internalLinkOptions(?string $type = null): array
+    {
+        if (! filled($type)) {
+            return [];
+        }
+
         $usedLinks = MenuItem::query()
             ->where('type', 'internal')
             ->when($this->editItemId !== null, fn ($query) => $query->whereKeyNot($this->editItemId))
             ->pluck('link')
             ->all();
 
-        return app(MenuPathBuilder::class)->internalLinkOptions($usedLinks);
+        return app(MenuPathBuilder::class)->internalLinkOptions($usedLinks, onlyType: $type);
     }
 
     /**

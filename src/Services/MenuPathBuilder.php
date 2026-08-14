@@ -261,32 +261,47 @@ class MenuPathBuilder
 
     /**
      * @param  list<string>|null  $excludeLinks
-     * @return array<string, array<string, string>>
+     * @return array<string, string>|array<string, array<string, string>>
      */
-    public function internalLinkOptions(?array $excludeLinks = null, ?string $locale = null): array
+    public function internalLinkOptions(?array $excludeLinks = null, ?string $locale = null, ?string $onlyType = null): array
     {
         $locale ??= app()->getLocale();
         $excludeLinks ??= [];
-        $groups = [];
+        $models = $this->registry->models();
 
-        foreach ($this->registry->models() as $type => $modelClass) {
-            $options = $this->optionsQuery($modelClass, $type)
-                ->get()
-                ->reject(fn (Model $model): bool => in_array("{$type}:{$model->getKey()}", $excludeLinks, true))
-                ->mapWithKeys(function (Model $model) use ($type, $locale): array {
-                    return ["{$type}:{$model->getKey()}" => $this->optionLabel($model, $locale)];
-                })
-                ->all();
+        if ($onlyType !== null) {
+            $modelClass = $models[$onlyType] ?? null;
 
-            $groupLabel = __('filament-menu::menu.groups.'.$type);
-            if ($groupLabel === 'filament-menu::menu.groups.'.$type) {
-                $groupLabel = str_replace('_', ' ', ucfirst($type));
+            if ($modelClass === null) {
+                return [];
             }
 
-            $groups[$groupLabel] = $options;
+            return $this->optionsForType($onlyType, $modelClass, $excludeLinks, $locale);
+        }
+
+        $groups = [];
+
+        foreach ($models as $type => $modelClass) {
+            $groups[$this->registry->labelFor($type)] = $this->optionsForType($type, $modelClass, $excludeLinks, $locale);
         }
 
         return array_filter($groups);
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
+     * @param  list<string>  $excludeLinks
+     * @return array<string, string>
+     */
+    private function optionsForType(string $type, string $modelClass, array $excludeLinks, string $locale): array
+    {
+        return $this->optionsQuery($modelClass, $type)
+            ->get()
+            ->reject(fn (Model $model): bool => in_array("{$type}:{$model->getKey()}", $excludeLinks, true))
+            ->mapWithKeys(function (Model $model) use ($type, $locale): array {
+                return ["{$type}:{$model->getKey()}" => $this->optionLabel($model, $locale)];
+            })
+            ->all();
     }
 
     /**
