@@ -498,6 +498,14 @@ class MenuPathBuilder
             }
         }
 
+        foreach (['title', 'name', 'label'] as $attribute) {
+            $value = $model->getAttribute($attribute);
+
+            if (is_string($value) && filled($value)) {
+                return $value;
+            }
+        }
+
         return (string) $model->getKey();
     }
 

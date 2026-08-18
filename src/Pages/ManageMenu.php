@@ -123,13 +123,11 @@ class ManageMenu extends Page
                     }),
                 Select::make('link')
                     ->label(__('filament-menu::menu.fields.link_target'))
-                    ->options(fn (Get $get): array => $this->internalLinkOptions(
-                        is_string($get('linkable_type')) ? $get('linkable_type') : null,
-                    ))
-                    ->searchable()
+                    ->options(fn (): array => $this->internalLinkOptions($this->currentLinkableType()))
+                    ->searchable(fn (): bool => count($this->internalLinkOptions($this->currentLinkableType())) > 20)
                     ->preload()
-                    ->getSearchResultsUsing(function (Get $get, string $search): array {
-                        $type = is_string($get('linkable_type')) ? $get('linkable_type') : null;
+                    ->getSearchResultsUsing(function (string $search): array {
+                        $type = $this->currentLinkableType();
 
                         if (! filled($type)) {
                             return [];
@@ -143,8 +141,8 @@ class ManageMenu extends Page
                     ->getOptionLabelUsing(fn ($value): ?string => $this->resolveLinkOptionLabel(
                         is_string($value) ? $value : null,
                     ))
-                    ->helperText(function (Get $get): ?string {
-                        $type = is_string($get('linkable_type')) ? $get('linkable_type') : null;
+                    ->helperText(function (): ?string {
+                        $type = $this->currentLinkableType();
 
                         if (! filled($type) || $this->internalLinkOptions($type) !== []) {
                             return null;
@@ -153,8 +151,11 @@ class ManageMenu extends Page
                         return __('filament-menu::menu.fields.link_target_all_used');
                     })
                     ->required()
-                    ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL && filled($get('linkable_type')))
-                    ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL),
+                    ->visible(fn (): bool => ($this->data['type'] ?? null) === MenuItem::TYPE_INTERNAL && filled($this->currentLinkableType()))
+                    ->dehydrated(fn (): bool => ($this->data['type'] ?? null) === MenuItem::TYPE_INTERNAL)
+                    ->extraFieldWrapperAttributes(fn (): array => [
+                        'wire:key' => 'menu-link-target-'.($this->currentLinkableType() ?? 'none'),
+                    ]),
                 TextInput::make('link')
                     ->label(__('filament-menu::menu.fields.url'))
                     ->url()
@@ -605,6 +606,13 @@ class ManageMenu extends Page
         }
 
         return $options;
+    }
+
+    protected function currentLinkableType(): ?string
+    {
+        $type = $this->data['linkable_type'] ?? null;
+
+        return is_string($type) && $type !== '' ? $type : null;
     }
 
     /**
