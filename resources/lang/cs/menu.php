@@ -61,6 +61,7 @@ return [
         'link_type' => 'Typ odkazu',
         'linkable_type' => 'Datový typ',
         'link_target' => 'Cíl odkazu',
+        'link_target_all_used' => 'Všechny položky tohoto typu jsou už v menu použité.',
         'url' => 'URL',
         'target_window' => 'Cílové okno',
         'is_published' => 'Publikováno',

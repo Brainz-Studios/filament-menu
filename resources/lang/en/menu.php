@@ -61,6 +61,7 @@ return [
         'link_type' => 'Link type',
         'linkable_type' => 'Content type',
         'link_target' => 'Link target',
+        'link_target_all_used' => 'All items of this type are already used in the menu.',
         'url' => 'URL',
         'target_window' => 'Target window',
         'is_published' => 'Published',

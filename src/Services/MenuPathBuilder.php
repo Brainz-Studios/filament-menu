@@ -140,19 +140,11 @@ class MenuPathBuilder
             return null;
         }
 
-        $types = $this->registry->types();
-
         $menuItems = MenuItem::query()
             ->published()
             ->where('type', MenuItem::TYPE_INTERNAL)
-            ->when($types !== [], function ($query) use ($types): void {
-                $query->where(function ($builder) use ($types): void {
-                    foreach ($types as $type) {
-                        $builder->orWhere('link', 'like', $type.':%');
-                    }
-                });
-            })
-            ->get();
+            ->get()
+            ->filter(fn (MenuItem $item): bool => MenuItem::parseInternalLink($item->link) !== null);
 
         foreach ($this->registry->locales() as $locale) {
             foreach ($menuItems as $menuItem) {
@@ -169,7 +161,7 @@ class MenuPathBuilder
                 $parsed = MenuItem::parseInternalLink($menuItem->link);
 
                 if ($parsed === null) {
-                    return null;
+                    continue;
                 }
 
                 $entity = $this->resolveEntity($parsed['type'], $parsed['id']);
@@ -286,6 +278,24 @@ class MenuPathBuilder
         }
 
         return array_filter($groups);
+    }
+
+    public function internalLinkOptionLabel(string $link, ?string $locale = null): ?string
+    {
+        $locale ??= app()->getLocale();
+        $parsed = MenuItem::parseInternalLink($link);
+
+        if ($parsed === null) {
+            return null;
+        }
+
+        $entity = $this->resolveEntity($parsed['type'], $parsed['id']);
+
+        if ($entity === null) {
+            return null;
+        }
+
+        return $this->optionLabel($entity, $locale);
     }
 
     /**

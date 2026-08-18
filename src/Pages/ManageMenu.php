@@ -118,7 +118,6 @@ class ManageMenu extends Page
                     ->required()
                     ->live()
                     ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL)
-                    ->dehydrated(false)
                     ->afterStateUpdated(function (Set $set): void {
                         $set('link', null);
                     }),
@@ -128,6 +127,31 @@ class ManageMenu extends Page
                         is_string($get('linkable_type')) ? $get('linkable_type') : null,
                     ))
                     ->searchable()
+                    ->preload()
+                    ->getSearchResultsUsing(function (Get $get, string $search): array {
+                        $type = is_string($get('linkable_type')) ? $get('linkable_type') : null;
+
+                        if (! filled($type)) {
+                            return [];
+                        }
+
+                        return $this->filterLinkOptionsBySearch(
+                            $this->internalLinkOptions($type),
+                            $search,
+                        );
+                    })
+                    ->getOptionLabelUsing(fn ($value): ?string => $this->resolveLinkOptionLabel(
+                        is_string($value) ? $value : null,
+                    ))
+                    ->helperText(function (Get $get): ?string {
+                        $type = is_string($get('linkable_type')) ? $get('linkable_type') : null;
+
+                        if (! filled($type) || $this->internalLinkOptions($type) !== []) {
+                            return null;
+                        }
+
+                        return __('filament-menu::menu.fields.link_target_all_used');
+                    })
                     ->required()
                     ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL && filled($get('linkable_type')))
                     ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL),
@@ -602,6 +626,33 @@ class ManageMenu extends Page
     }
 
     /**
+     * @param  array<string, string>  $options
+     * @return array<string, string>
+     */
+    protected function filterLinkOptionsBySearch(array $options, string $search): array
+    {
+        $search = mb_strtolower(trim($search));
+
+        if ($search === '') {
+            return $options;
+        }
+
+        return array_filter(
+            $options,
+            fn (string $label): bool => str_contains(mb_strtolower($label), $search),
+        );
+    }
+
+    protected function resolveLinkOptionLabel(?string $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        return app(MenuPathBuilder::class)->internalLinkOptionLabel($value);
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
 
@@ -688,6 +739,8 @@ class ManageMenu extends Page
      */
     protected function normalizeMenuItemData(array $data): array
     {
+        unset($data['linkable_type']);
+
         if (($data['type'] ?? null) === MenuItem::TYPE_NODE) {
             $data['link'] = '';
             $data['target'] = '_self';
