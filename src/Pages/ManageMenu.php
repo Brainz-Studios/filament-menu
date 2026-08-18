@@ -148,7 +148,7 @@ class ManageMenu extends Page
                             return null;
                         }
 
-                        return __('filament-menu::menu.fields.link_target_all_used');
+                        return __('filament-menu::menu.fields.link_target_empty');
                     })
                     ->required()
                     ->visible(fn (): bool => ($this->data['type'] ?? null) === MenuItem::TYPE_INTERNAL && filled($this->currentLinkableType()))
@@ -191,7 +191,6 @@ class ManageMenu extends Page
     {
         $data = $this->normalizeMenuItemData($this->form->getState());
         $this->assertParentAllowsChild($data['parent_id'] ?? null);
-        $this->assertInternalLinkIsUnique($data);
         $this->assertNodeSlugIsGloballyUnique($data);
 
         $data['sort_order'] = MenuItem::query()
@@ -258,7 +257,6 @@ class ManageMenu extends Page
 
         $this->assertCanBecomeNonNode($item, $data['type'] ?? null);
         $this->assertParentAllowsChild($parentId, $item);
-        $this->assertInternalLinkIsUnique($data, $item->id);
         $this->assertNodeSlugIsGloballyUnique($data, $item->id);
 
         $item->update($data);
@@ -624,13 +622,7 @@ class ManageMenu extends Page
             return [];
         }
 
-        $usedLinks = MenuItem::query()
-            ->where('type', 'internal')
-            ->when($this->editItemId !== null, fn ($query) => $query->whereKeyNot($this->editItemId))
-            ->pluck('link')
-            ->all();
-
-        return app(MenuPathBuilder::class)->internalLinkOptions($usedLinks, onlyType: $type);
+        return app(MenuPathBuilder::class)->internalLinkOptions(onlyType: $type);
     }
 
     /**
@@ -710,34 +702,6 @@ class ManageMenu extends Page
 
         if ($messages !== []) {
             throw ValidationException::withMessages($messages);
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    protected function assertInternalLinkIsUnique(array $data, ?int $ignoreId = null): void
-    {
-        if (($data['type'] ?? null) !== 'internal') {
-            return;
-        }
-
-        $link = $data['link'] ?? null;
-
-        if (! is_string($link) || $link === '') {
-            return;
-        }
-
-        $exists = MenuItem::query()
-            ->where('type', 'internal')
-            ->where('link', $link)
-            ->when($ignoreId !== null, fn ($query) => $query->whereKeyNot($ignoreId))
-            ->exists();
-
-        if ($exists) {
-            throw ValidationException::withMessages([
-                'data.link' => __('filament-menu::menu.errors.link_already_used'),
-            ]);
         }
     }
 
