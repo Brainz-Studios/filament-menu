@@ -14,6 +14,8 @@ return [
     'empty' => 'No menu items yet. Add the first item using the form on the side.',
     'depth_badge' => 'level :depth/:max',
     'hidden' => 'Hidden',
+    'collapse' => 'Collapse child items',
+    'expand' => 'Expand child items',
     'outdent' => 'Move up one level',
     'indent' => 'Nest under the previous item',
     'add_child' => 'Add child item',

@@ -29,6 +29,8 @@
             data-max-depth="{{ $maxDepth }}"
             data-indent="24"
             data-depth-template="{{ __('filament-menu::menu.depth_badge', ['depth' => '__DEPTH__', 'max' => '__MAX__']) }}"
+            data-collapse-label="{{ __('filament-menu::menu.collapse') }}"
+            data-expand-label="{{ __('filament-menu::menu.expand') }}"
         >
             @foreach ($flatItems as $index => $item)
                 @php
@@ -56,12 +58,17 @@
                         && $item['depth'] <= $previousDepth
                         && $item['depth'] < $maxDepth
                         && ($prospectiveParent['type'] ?? null) === MenuItem::TYPE_NODE;
+
+                    $nextDepth = isset($flatItems[$index + 1]) ? (int) $flatItems[$index + 1]['depth'] : 0;
+                    $canCollapse = ($item['type'] ?? null) === MenuItem::TYPE_NODE
+                        && $nextDepth > (int) $item['depth'];
                 @endphp
                 @include('filament-menu::forms.components.menu-tree-item', [
                     'item' => $item,
                     'depth' => $item['depth'],
                     'maxDepth' => $maxDepth,
                     'canIndent' => $canIndent,
+                    'canCollapse' => $canCollapse,
                 ])
             @endforeach
         </ul>

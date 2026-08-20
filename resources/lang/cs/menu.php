@@ -14,6 +14,8 @@ return [
     'empty' => 'Zatím žádné položky. Přidejte první položku formulářem vpravo.',
     'depth_badge' => 'úroveň :depth/:max',
     'hidden' => 'Skryté',
+    'collapse' => 'Sbalit podřízené položky',
+    'expand' => 'Rozbalit podřízené položky',
     'outdent' => 'Posunout o úroveň výš',
     'indent' => 'Zanořit pod předchozí položku',
     'add_child' => 'Přidat podřízenou položku',

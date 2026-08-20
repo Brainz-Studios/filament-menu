@@ -1,6 +1,7 @@
 @php
     $maxDepth = $maxDepth ?? \BrainzStudios\FilamentMenu\Models\MenuItem::MAX_DEPTH;
     $canIndent = $canIndent ?? false;
+    $canCollapse = $canCollapse ?? false;
     $label = is_array($item['label'] ?? null)
         ? ($item['label']['cs'] ?? $item['label']['en'] ?? '')
         : (string) ($item['label'] ?? '');
@@ -18,9 +19,27 @@
     style="margin-left: {{ ($depth - 1) * 24 }}px"
 >
     <div class="menu-item-handle flex items-center justify-between gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
-        <div class="flex items-center gap-3 min-w-0 cursor-move">
-            <span class="text-gray-400 shrink-0 select-none" aria-hidden="true">☰</span>
-            <div class="flex items-center gap-2 min-w-0 flex-wrap">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span class="w-6 shrink-0 flex items-center justify-center">
+                @if ($canCollapse)
+                    <button
+                        type="button"
+                        data-collapse-toggle
+                        class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded p-0.5"
+                        aria-expanded="true"
+                        title="{{ __('filament-menu::menu.collapse') }}"
+                    >
+                        <x-filament::icon
+                            icon="heroicon-m-chevron-down"
+                            class="h-4 w-4 transition-transform"
+                            data-collapse-chevron
+                        />
+                    </button>
+                @endif
+            </span>
+            <div class="flex items-center gap-3 min-w-0 cursor-move">
+                <span class="text-gray-400 shrink-0 select-none" aria-hidden="true">☰</span>
+                <div class="flex items-center gap-2 min-w-0 flex-wrap">
                 <span class="font-medium truncate">{{ $label }}</span>
                 @if ($type === \BrainzStudios\FilamentMenu\Models\MenuItem::TYPE_INTERNAL)
                     <span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 shrink-0">
@@ -42,6 +61,7 @@
                     data-depth-badge
                     class="text-xs text-primary-600 dark:text-primary-400 shrink-0 font-medium"
                 >{{ __('filament-menu::menu.depth_badge', ['depth' => $depth, 'max' => $maxDepth]) }}</span>
+                </div>
             </div>
         </div>
         <div class="flex items-center gap-1 shrink-0">

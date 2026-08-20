@@ -44,9 +44,61 @@
         const indentSize = () => Number(document.getElementById('menu-tree')?.dataset.indent || 24);
         const maxDepth = () => Number(document.getElementById('menu-tree')?.dataset.maxDepth || 7);
         const depthTemplate = () => document.getElementById('menu-tree')?.dataset.depthTemplate || ':depth/:max';
+        const collapseLabel = () => document.getElementById('menu-tree')?.dataset.collapseLabel || '';
+        const expandLabel = () => document.getElementById('menu-tree')?.dataset.expandLabel || '';
         const menuItems = (tree) => Array.from(tree.querySelectorAll(':scope > li.menu-item'));
+        const collapsedStorageKey = 'filament-menu-collapsed-nodes';
 
         const canAcceptChildren = (li) => li?.dataset.canAcceptChildren === '1';
+
+        const loadCollapsedIds = () => {
+            try {
+                return new Set((JSON.parse(localStorage.getItem(collapsedStorageKey) || '[]') || []).map(String));
+            } catch {
+                return new Set();
+            }
+        };
+
+        const saveCollapsedIds = (ids) => {
+            localStorage.setItem(collapsedStorageKey, JSON.stringify([...ids]));
+        };
+
+        const updateCollapseToggle = (li, collapsed) => {
+            const toggle = li.querySelector('[data-collapse-toggle]');
+
+            if (! toggle) {
+                return;
+            }
+
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            toggle.setAttribute('title', collapsed ? expandLabel() : collapseLabel());
+
+            const chevron = toggle.querySelector('[data-collapse-chevron]') ?? toggle.querySelector('svg');
+            chevron?.classList.toggle('-rotate-90', collapsed);
+        };
+
+        const applyCollapsed = (tree) => {
+            const collapsedIds = loadCollapsedIds();
+            const items = menuItems(tree);
+            let hideBelowDepth = null;
+
+            items.forEach((li) => {
+                const depth = Number(li.dataset.depth || 1);
+                const id = String(li.dataset.id || '');
+                const collapsed = collapsedIds.has(id);
+
+                if (hideBelowDepth !== null && depth > hideBelowDepth) {
+                    li.hidden = true;
+                    updateCollapseToggle(li, collapsed);
+
+                    return;
+                }
+
+                hideBelowDepth = collapsed ? depth : null;
+                li.hidden = false;
+                updateCollapseToggle(li, collapsed);
+            });
+        };
 
         const depthLabel = (depth) => depthTemplate()
             .replaceAll('__DEPTH__', String(depth))
@@ -222,12 +274,16 @@
                 applyDepthStyles(li, Number(li.dataset.depth || 1));
             });
 
+            applyCollapsed(tree);
+
             document.addEventListener('pointermove', onPointerMove);
 
             sortable = new Sortable(tree, {
                 animation: 150,
                 handle: '.cursor-move',
                 draggable: '.menu-item',
+                filter: '[data-collapse-toggle], [hidden]',
+                preventOnFilter: true,
                 forceFallback: true,
                 fallbackOnBody: true,
                 fallbackTolerance: 5,
@@ -267,6 +323,40 @@
         };
 
         initSortable();
+
+        document.addEventListener('click', (event) => {
+            const toggle = event.target.closest('#menu-tree [data-collapse-toggle]');
+
+            if (! toggle) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const item = toggle.closest('li.menu-item');
+            const id = String(item?.dataset.id || '');
+
+            if (! id) {
+                return;
+            }
+
+            const collapsedIds = loadCollapsedIds();
+
+            if (collapsedIds.has(id)) {
+                collapsedIds.delete(id);
+            } else {
+                collapsedIds.add(id);
+            }
+
+            saveCollapsedIds(collapsedIds);
+
+            const tree = document.getElementById('menu-tree');
+
+            if (tree) {
+                applyCollapsed(tree);
+            }
+        });
 
         $wire.on('menu-tree-updated', () => {
             requestAnimationFrame(() => initSortable());
