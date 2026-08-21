@@ -76,5 +76,4 @@ Services available in the host:
 ## Host notes
 
 - No Filament Shield / Knowledge Base dependency.
-- SEO image field is a numeric media ID (no Media Library hard dependency).
 - Publish Sortable asset tag once so the admin tree drag-and-drop works.

@@ -3,7 +3,6 @@
 namespace BrainzStudios\FilamentMenu\Models;
 
 use BrainzStudios\FilamentMenu\Database\Factories\MenuItemFactory;
-use BrainzStudios\FilamentMenu\Models\Concerns\HasSeoAttributes;
 use BrainzStudios\FilamentMenu\Services\MenuPathBuilder;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,7 +18,7 @@ use Spatie\Translatable\HasTranslations;
 class MenuItem extends Model
 {
     /** @use HasFactory<MenuItemFactory> */
-    use HasFactory, HasSeoAttributes, HasTranslations, SoftDeletes;
+    use HasFactory, HasTranslations, SoftDeletes;
 
     public const MAX_DEPTH = 7;
 

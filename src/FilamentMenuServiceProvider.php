@@ -14,7 +14,10 @@ class FilamentMenuServiceProvider extends PackageServiceProvider
             ->hasConfigFile('filament-menu')
             ->hasViews()
             ->hasTranslations()
-            ->hasMigration('create_menu_items_table');
+            ->hasMigrations(
+                'create_menu_items_table',
+                'drop_seo_columns_from_menu_items_table',
+            );
     }
 
     public function packageBooted(): void

@@ -2,7 +2,6 @@
 
 namespace BrainzStudios\FilamentMenu\Pages;
 
-use BrainzStudios\FilamentMenu\Forms\Components\SeoSection;
 use BrainzStudios\FilamentMenu\Forms\Components\TranslatableTabs;
 use BrainzStudios\FilamentMenu\Support\AutoSlug;
 use BrainzStudios\FilamentMenu\Models\MenuItem;
@@ -97,7 +96,6 @@ class ManageMenu extends Page
                     ->searchable()
                     ->nullable(),
                 TranslatableTabs::make($this->labelSlugTabs()),
-                SeoSection::make(),
                 Select::make('type')
                     ->label(__('filament-menu::menu.fields.link_type'))
                     ->options([
@@ -218,16 +216,6 @@ class ManageMenu extends Page
             'parent_id' => $item->parent_id,
             'label' => $item->getTranslations('label'),
             'slug' => $item->getTranslations('slug'),
-            'seo_title' => $item->getTranslations('seo_title'),
-            'seo_description' => $item->getTranslations('seo_description'),
-            'seo_keywords' => $item->getTranslations('seo_keywords'),
-            'seo_canonical_url' => $item->getTranslations('seo_canonical_url'),
-            'seo_og_title' => $item->getTranslations('seo_og_title'),
-            'seo_og_description' => $item->getTranslations('seo_og_description'),
-            'seo_image' => $item->seo_image,
-            'seo_robots' => $item->seo_robots?->value,
-            'seo_og_type' => $item->seo_og_type?->value,
-            'seo_twitter_card' => $item->seo_twitter_card?->value,
             'type' => $item->type,
             'linkable_type' => MenuItem::parseInternalLink($item->link)['type'] ?? null,
             'link' => $item->link,

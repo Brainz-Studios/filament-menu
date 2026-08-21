@@ -1,4 +1,4 @@
-# Host must provide LocalizedString (and optionally SeoAttributes) types used below.
+# Host must provide LocalizedString types used below.
 # Define union MenuLinkable with your content types, e.g.:
 #   union MenuLinkable @union(resolveType: "BrainzStudios\\FilamentMenu\\GraphQL\\Unions\\MenuLinkable") =
 #       Page | Department | ...
