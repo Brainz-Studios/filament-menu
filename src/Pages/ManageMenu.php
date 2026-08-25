@@ -117,27 +117,14 @@ class ManageMenu extends Page
                     ->required()
                     ->live()
                     ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL)
-                    ->dehydrated(false)
                     ->afterStateUpdated(function (Set $set): void {
                         $set('link', null);
                     }),
                 Select::make('link')
                     ->label(__('filament-menu::menu.fields.link_target'))
                     ->options(fn (): array => $this->internalLinkOptions($this->currentLinkableType()))
-                    ->searchable(fn (): bool => count($this->internalLinkOptions($this->currentLinkableType())) > 20)
-                    ->preload()
-                    ->getSearchResultsUsing(function (string $search): array {
-                        $type = $this->currentLinkableType();
-
-                        if (! filled($type)) {
-                            return [];
-                        }
-
-                        return $this->filterLinkOptionsBySearch(
-                            $this->internalLinkOptions($type),
-                            $search,
-                        );
-                    })
+                    ->searchable()
+                    ->native(false)
                     ->getOptionLabelUsing(fn ($value): ?string => $this->resolveLinkOptionLabel(
                         is_string($value) ? $value : null,
                     ))
@@ -153,9 +140,7 @@ class ManageMenu extends Page
                     ->required()
                     ->visible(fn (): bool => ($this->data['type'] ?? null) === MenuItem::TYPE_INTERNAL && filled($this->currentLinkableType()))
                     ->dehydrated(fn (): bool => ($this->data['type'] ?? null) === MenuItem::TYPE_INTERNAL)
-                    ->extraFieldWrapperAttributes(fn (): array => [
-                        'wire:key' => 'menu-link-target-'.($this->currentLinkableType() ?? 'none'),
-                    ]),
+                    ->key(fn (): string => 'menu-link-target-'.($this->currentLinkableType() ?? 'none')),
                 TextInput::make('external_link')
                     ->label(__('filament-menu::menu.fields.url'))
                     ->url()
@@ -191,7 +176,7 @@ class ManageMenu extends Page
     {
         $data = $this->normalizeMenuItemData($this->form->getState());
         $this->assertParentAllowsChild($data['parent_id'] ?? null);
-        $this->assertInternalLinkIsUnique($data);
+        $this->assertInternalLinkIsAllowed($data);
         $this->assertNodeSlugIsGloballyUnique($data);
 
         $data['sort_order'] = MenuItem::query()
@@ -251,7 +236,7 @@ class ManageMenu extends Page
 
         $this->assertCanBecomeNonNode($item, $data['type'] ?? null);
         $this->assertParentAllowsChild($parentId, $item);
-        $this->assertInternalLinkIsUnique($data, $item->id);
+        $this->assertInternalLinkIsAllowed($data, $item->id);
         $this->assertNodeSlugIsGloballyUnique($data, $item->id);
 
         $item->update($data);
@@ -618,31 +603,7 @@ class ManageMenu extends Page
             return [];
         }
 
-        $usedLinks = MenuItem::query()
-            ->where('type', MenuItem::TYPE_INTERNAL)
-            ->when($this->editItemId !== null, fn ($query) => $query->whereKeyNot($this->editItemId))
-            ->pluck('link')
-            ->all();
-
-        return app(MenuPathBuilder::class)->internalLinkOptions($usedLinks, onlyType: $type);
-    }
-
-    /**
-     * @param  array<string, string>  $options
-     * @return array<string, string>
-     */
-    protected function filterLinkOptionsBySearch(array $options, string $search): array
-    {
-        $search = mb_strtolower(trim($search));
-
-        if ($search === '') {
-            return $options;
-        }
-
-        return array_filter(
-            $options,
-            fn (string $label): bool => str_contains(mb_strtolower($label), $search),
-        );
+        return app(MenuPathBuilder::class)->internalLinkOptions(onlyType: $type);
     }
 
     protected function resolveLinkOptionLabel(?string $value): ?string
@@ -704,31 +665,13 @@ class ManageMenu extends Page
     }
 
     /**
+     * Hook for host apps (e.g. published-only checks). Links may be reused.
+     *
      * @param  array<string, mixed>  $data
      */
-    protected function assertInternalLinkIsUnique(array $data, ?int $ignoreId = null): void
+    protected function assertInternalLinkIsAllowed(array $data, ?int $ignoreId = null): void
     {
-        if (($data['type'] ?? null) !== MenuItem::TYPE_INTERNAL) {
-            return;
-        }
-
-        $link = $data['link'] ?? null;
-
-        if (! is_string($link) || $link === '') {
-            return;
-        }
-
-        $exists = MenuItem::query()
-            ->where('type', MenuItem::TYPE_INTERNAL)
-            ->where('link', $link)
-            ->when($ignoreId !== null, fn ($query) => $query->whereKeyNot($ignoreId))
-            ->exists();
-
-        if ($exists) {
-            throw ValidationException::withMessages([
-                'data.link' => __('filament-menu::menu.errors.link_already_used'),
-            ]);
-        }
+        //
     }
 
     /**
