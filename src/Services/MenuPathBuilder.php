@@ -280,9 +280,12 @@ class MenuPathBuilder
         return array_filter($groups);
     }
 
-    public function internalLinkOptionLabel(string $link, ?string $locale = null): ?string
+    public function internalLinkOptionLabel(?string $link): ?string
     {
-        $locale ??= app()->getLocale();
+        if (! filled($link)) {
+            return null;
+        }
+
         $parsed = MenuItem::parseInternalLink($link);
 
         if ($parsed === null) {
@@ -295,7 +298,7 @@ class MenuPathBuilder
             return null;
         }
 
-        return $this->optionLabel($entity, $locale);
+        return $this->optionLabel($entity, app()->getLocale());
     }
 
     /**
