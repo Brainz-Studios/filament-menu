@@ -109,6 +109,7 @@ class ManageMenu extends Page
                     ->afterStateUpdated(function (Set $set): void {
                         $set('linkable_type', null);
                         $set('link', null);
+                        $set('external_link', null);
                     }),
                 Select::make('linkable_type')
                     ->label(__('filament-menu::menu.fields.linkable_type'))
@@ -116,6 +117,7 @@ class ManageMenu extends Page
                     ->required()
                     ->live()
                     ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_INTERNAL)
+                    ->dehydrated(false)
                     ->afterStateUpdated(function (Set $set): void {
                         $set('link', null);
                     }),
@@ -154,7 +156,7 @@ class ManageMenu extends Page
                     ->extraFieldWrapperAttributes(fn (): array => [
                         'wire:key' => 'menu-link-target-'.($this->currentLinkableType() ?? 'none'),
                     ]),
-                TextInput::make('link')
+                TextInput::make('external_link')
                     ->label(__('filament-menu::menu.fields.url'))
                     ->url()
                     ->required()
@@ -189,6 +191,7 @@ class ManageMenu extends Page
     {
         $data = $this->normalizeMenuItemData($this->form->getState());
         $this->assertParentAllowsChild($data['parent_id'] ?? null);
+        $this->assertInternalLinkIsUnique($data);
         $this->assertNodeSlugIsGloballyUnique($data);
 
         $data['sort_order'] = MenuItem::query()
@@ -212,13 +215,16 @@ class ManageMenu extends Page
         $this->editItemId = $id;
         $this->editing = true;
 
+        $isExternal = $item->type === MenuItem::TYPE_EXTERNAL;
+
         $this->form->fill([
             'parent_id' => $item->parent_id,
             'label' => $item->getTranslations('label'),
             'slug' => $item->getTranslations('slug'),
             'type' => $item->type,
             'linkable_type' => MenuItem::parseInternalLink($item->link)['type'] ?? null,
-            'link' => $item->link,
+            'link' => $isExternal ? null : $item->link,
+            'external_link' => $isExternal ? $item->link : null,
             'target' => $item->target,
             'is_published' => $item->is_published,
         ]);
@@ -245,6 +251,7 @@ class ManageMenu extends Page
 
         $this->assertCanBecomeNonNode($item, $data['type'] ?? null);
         $this->assertParentAllowsChild($parentId, $item);
+        $this->assertInternalLinkIsUnique($data, $item->id);
         $this->assertNodeSlugIsGloballyUnique($data, $item->id);
 
         $item->update($data);
@@ -506,6 +513,7 @@ class ManageMenu extends Page
             'label' => ['cs' => '', 'en' => ''],
             'linkable_type' => null,
             'link' => null,
+            'external_link' => null,
         ]);
     }
 
@@ -610,7 +618,13 @@ class ManageMenu extends Page
             return [];
         }
 
-        return app(MenuPathBuilder::class)->internalLinkOptions(onlyType: $type);
+        $usedLinks = MenuItem::query()
+            ->where('type', MenuItem::TYPE_INTERNAL)
+            ->when($this->editItemId !== null, fn ($query) => $query->whereKeyNot($this->editItemId))
+            ->pluck('link')
+            ->all();
+
+        return app(MenuPathBuilder::class)->internalLinkOptions($usedLinks, onlyType: $type);
     }
 
     /**
@@ -639,10 +653,6 @@ class ManageMenu extends Page
 
         return app(MenuPathBuilder::class)->internalLinkOptionLabel($value);
     }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
 
     /**
      * @return array<string, list<mixed>>
@@ -695,11 +705,45 @@ class ManageMenu extends Page
 
     /**
      * @param  array<string, mixed>  $data
+     */
+    protected function assertInternalLinkIsUnique(array $data, ?int $ignoreId = null): void
+    {
+        if (($data['type'] ?? null) !== MenuItem::TYPE_INTERNAL) {
+            return;
+        }
+
+        $link = $data['link'] ?? null;
+
+        if (! is_string($link) || $link === '') {
+            return;
+        }
+
+        $exists = MenuItem::query()
+            ->where('type', MenuItem::TYPE_INTERNAL)
+            ->where('link', $link)
+            ->when($ignoreId !== null, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'data.link' => __('filament-menu::menu.errors.link_already_used'),
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     protected function normalizeMenuItemData(array $data): array
     {
         unset($data['linkable_type']);
+
+        if (($data['type'] ?? null) === MenuItem::TYPE_EXTERNAL) {
+            $data['link'] = is_string($data['external_link'] ?? null) ? $data['external_link'] : '';
+        }
+
+        unset($data['external_link']);
 
         if (($data['type'] ?? null) === MenuItem::TYPE_NODE) {
             $data['link'] = '';
