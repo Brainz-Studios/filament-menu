@@ -325,6 +325,36 @@
         initSortable();
 
         document.addEventListener('click', (event) => {
+            const collapseAll = event.target.closest('[data-collapse-all]');
+            const expandAll = event.target.closest('[data-expand-all]');
+            const tree = document.getElementById('menu-tree');
+
+            if (collapseAll || expandAll) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (! tree) {
+                    return;
+                }
+
+                if (expandAll) {
+                    saveCollapsedIds(new Set());
+                } else {
+                    const ids = new Set(
+                        menuItems(tree)
+                            .filter((li) => li.querySelector('[data-collapse-toggle]'))
+                            .map((li) => String(li.dataset.id || ''))
+                            .filter(Boolean),
+                    );
+
+                    saveCollapsedIds(ids);
+                }
+
+                applyCollapsed(tree);
+
+                return;
+            }
+
             const toggle = event.target.closest('#menu-tree [data-collapse-toggle]');
 
             if (! toggle) {
@@ -350,8 +380,6 @@
             }
 
             saveCollapsedIds(collapsedIds);
-
-            const tree = document.getElementById('menu-tree');
 
             if (tree) {
                 applyCollapsed(tree);

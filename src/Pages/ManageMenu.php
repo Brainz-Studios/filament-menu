@@ -95,7 +95,6 @@ class ManageMenu extends Page
                     ->options(fn (): array => $this->parentOptions())
                     ->searchable()
                     ->nullable(),
-                TranslatableTabs::make($this->labelSlugTabs()),
                 Select::make('type')
                     ->label(__('filament-menu::menu.fields.link_type'))
                     ->options([
@@ -111,6 +110,7 @@ class ManageMenu extends Page
                         $set('link', null);
                         $set('external_link', null);
                     }),
+                TranslatableTabs::make($this->labelSlugTabs()),
                 Select::make('linkable_type')
                     ->label(__('filament-menu::menu.fields.linkable_type'))
                     ->options(fn (): array => $this->linkableTypeOptions())
@@ -628,9 +628,18 @@ class ManageMenu extends Page
                     ->label(__('filament-menu::menu.fields.label'))
                     ->required()
                     ->live(onBlur: true)
-                    ->afterStateUpdated(AutoSlug::fromLocalizedField($locale)),
+                    ->afterStateUpdated(function (Set $set, Get $get, ?string $state, ?string $old) use ($locale): void {
+                        if ($get('type') !== MenuItem::TYPE_NODE) {
+                            return;
+                        }
+
+                        AutoSlug::fromLocalizedField($locale)($set, $get, $state, $old);
+                    }),
                 TextInput::make("slug.{$locale}")
-                    ->label(__('filament-menu::menu.fields.slug')),
+                    ->label(__('filament-menu::menu.fields.slug'))
+                    ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_NODE)
+                    ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_NODE)
+                    ->required(fn (Get $get): bool => $get('type') === MenuItem::TYPE_NODE),
             ];
         }
 
@@ -691,21 +700,23 @@ class ManageMenu extends Page
         if (($data['type'] ?? null) === MenuItem::TYPE_NODE) {
             $data['link'] = '';
             $data['target'] = '_self';
-        }
 
-        $label = $data['label'] ?? [];
-        $slug = $data['slug'] ?? [];
+            $label = $data['label'] ?? [];
+            $slug = $data['slug'] ?? [];
 
-        foreach (config('filament-menu.locales', ['cs', 'en']) as $locale) {
-            $labelValue = is_array($label) ? (string) ($label[$locale] ?? '') : '';
-            $slugValue = is_array($slug) ? (string) ($slug[$locale] ?? '') : '';
+            foreach (config('filament-menu.locales', ['cs', 'en']) as $locale) {
+                $labelValue = is_array($label) ? (string) ($label[$locale] ?? '') : '';
+                $slugValue = is_array($slug) ? (string) ($slug[$locale] ?? '') : '';
 
-            if ($slugValue === '' && $labelValue !== '') {
-                $slug[$locale] = AutoSlug::make($labelValue);
+                if ($slugValue === '' && $labelValue !== '') {
+                    $slug[$locale] = AutoSlug::make($labelValue);
+                }
             }
-        }
 
-        $data['slug'] = $slug;
+            $data['slug'] = $slug;
+        } else {
+            $data['slug'] = [];
+        }
 
         return $data;
     }
