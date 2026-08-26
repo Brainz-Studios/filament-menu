@@ -335,13 +335,75 @@ class ManageMenu extends Page
         }
 
         $item = $flat[$index];
+        $rootDepth = (int) $item['depth'];
 
-        if ($item['depth'] <= 1) {
+        if ($rootDepth <= 1) {
             return;
         }
 
-        $flat = $this->shiftBlockDepth($flat, $index, -1);
+        [$start, $end] = $this->blockRange($flat, $index);
+
+        $parentIndex = null;
+
+        for ($i = $start - 1; $i >= 0; $i--) {
+            if ((int) $flat[$i]['depth'] === $rootDepth - 1) {
+                $parentIndex = $i;
+                break;
+            }
+        }
+
+        if ($parentIndex === null) {
+            return;
+        }
+
+        $parentDepth = (int) $flat[$parentIndex]['depth'];
+        $parentEnd = $parentIndex;
+
+        for ($i = $parentIndex + 1; $i < count($flat); $i++) {
+            if ((int) $flat[$i]['depth'] <= $parentDepth) {
+                break;
+            }
+
+            $parentEnd = $i;
+        }
+
+        $block = array_slice($flat, $start, $end - $start + 1);
+        array_splice($flat, $start, $end - $start + 1);
+
+        if ($parentEnd >= $start) {
+            $parentEnd -= ($end - $start + 1);
+        }
+
+        foreach ($block as $offset => $blockItem) {
+            $block[$offset]['depth'] = max(1, (int) $blockItem['depth'] - 1);
+        }
+
+        array_splice($flat, $parentEnd + 1, 0, $block);
+
         $this->persistFlatOrder($flat);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $flat
+     * @return array{0: int, 1: int}
+     */
+    protected function blockRange(array $flat, int $index): array
+    {
+        $rootDepth = (int) $flat[$index]['depth'];
+        $end = $index;
+
+        // Only node pages carry their descendants when shifting levels.
+        if (($flat[$index]['type'] ?? null) === MenuItem::TYPE_NODE) {
+            for ($i = $index + 1; $i < count($flat); $i++) {
+                if ((int) $flat[$i]['depth'] <= $rootDepth) {
+                    break;
+                }
+
+                $end = $i;
+            }
+        }
+
+        return [$index, $end];
     }
 
     /**
@@ -350,18 +412,9 @@ class ManageMenu extends Page
      */
     protected function shiftBlockDepth(array $flat, int $index, int $delta): array
     {
-        $rootDepth = (int) $flat[$index]['depth'];
-        $end = $index;
+        [$start, $end] = $this->blockRange($flat, $index);
 
-        for ($i = $index + 1; $i < count($flat); $i++) {
-            if ((int) $flat[$i]['depth'] <= $rootDepth) {
-                break;
-            }
-
-            $end = $i;
-        }
-
-        for ($i = $index; $i <= $end; $i++) {
+        for ($i = $start; $i <= $end; $i++) {
             $flat[$i]['depth'] = max(1, min(MenuItem::MAX_DEPTH, (int) $flat[$i]['depth'] + $delta));
         }
 

@@ -16,6 +16,8 @@ return [
     'hidden' => 'Hidden',
     'collapse' => 'Collapse child items',
     'expand' => 'Expand child items',
+    'collapse_all' => 'Collapse all',
+    'expand_all' => 'Expand all',
     'outdent' => 'Move up one level',
     'indent' => 'Nest under the previous item',
     'add_child' => 'Add child item',

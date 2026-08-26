@@ -163,6 +163,12 @@
         const collectBlock = (li) => {
             const rootDepth = Number(li.dataset.depth || 1);
             const block = [li];
+
+            // Only node pages move their descendants with them.
+            if (li.dataset.type !== 'node') {
+                return block;
+            }
+
             let next = li.nextElementSibling;
 
             while (next && Number(next.dataset.depth || 1) > rootDepth) {
@@ -171,6 +177,45 @@
             }
 
             return block;
+        };
+
+        const relocateOutdentedBlock = (item) => {
+            const originalDepth = Number(item.dataset.originalDepth || item.dataset.depth || 1);
+            const currentDepth = Number(item.dataset.depth || 1);
+
+            if (currentDepth >= originalDepth || dragBlock.length === 0) {
+                return;
+            }
+
+            const parentDepth = originalDepth - 1;
+            let parent = item.previousElementSibling;
+
+            while (parent && Number(parent.dataset.depth || 1) >= originalDepth) {
+                parent = parent.previousElementSibling;
+            }
+
+            if (! parent || Number(parent.dataset.depth || 1) !== parentDepth) {
+                return;
+            }
+
+            let anchor = parent;
+            let cursor = parent.nextElementSibling;
+
+            while (cursor && ! dragBlock.includes(cursor) && Number(cursor.dataset.depth || 1) > parentDepth) {
+                anchor = cursor;
+                cursor = cursor.nextElementSibling;
+            }
+
+            if (anchor.nextElementSibling === item) {
+                return;
+            }
+
+            let insertAfter = anchor;
+
+            dragBlock.forEach((el) => {
+                insertAfter.after(el);
+                insertAfter = el;
+            });
         };
 
         const restoreBlockAfter = (item) => {
@@ -307,6 +352,7 @@
                 onEnd: (evt) => {
                     restoreBlockAfter(evt.item);
                     setBlockDepths(proposedRootDepth(evt.item));
+                    relocateOutdentedBlock(evt.item);
 
                     dragBlock.forEach((el) => {
                         delete el.dataset.originalDepth;

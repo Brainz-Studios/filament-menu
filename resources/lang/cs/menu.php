@@ -16,6 +16,8 @@ return [
     'hidden' => 'Skryté',
     'collapse' => 'Sbalit podřízené položky',
     'expand' => 'Rozbalit podřízené položky',
+    'collapse_all' => 'Zabalit vše',
+    'expand_all' => 'Rozbalit vše',
     'outdent' => 'Posunout o úroveň výš',
     'indent' => 'Zanořit pod předchozí položku',
     'add_child' => 'Přidat podřízenou položku',
