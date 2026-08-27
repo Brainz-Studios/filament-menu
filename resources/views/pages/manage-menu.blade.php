@@ -198,6 +198,34 @@
                 return;
             }
 
+            // Content under parent that sits before the dragged block (previous siblings / their trees).
+            let hasPreviousUnderParent = false;
+            let probe = parent.nextElementSibling;
+
+            while (probe && ! dragBlock.includes(probe)) {
+                const depth = Number(probe.dataset.depth || 1);
+
+                if (depth <= parentDepth) {
+                    break;
+                }
+
+                hasPreviousUnderParent = true;
+                break;
+            }
+
+            // First child: move before parent so following siblings (B) keep their place.
+            if (! hasPreviousUnderParent) {
+                parent.before(dragBlock[0]);
+
+                let anchor = dragBlock[0];
+                dragBlock.slice(1).forEach((el) => {
+                    anchor.after(el);
+                    anchor = el;
+                });
+
+                return;
+            }
+
             let insertAfter = parent;
             let cursor = parent.nextElementSibling;
 
@@ -215,11 +243,9 @@
                 cursor = cursor.nextElementSibling;
             }
 
-            let anchor = insertAfter;
-
             dragBlock.forEach((el) => {
-                anchor.after(el);
-                anchor = el;
+                insertAfter.after(el);
+                insertAfter = el;
             });
         };
 

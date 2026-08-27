@@ -296,23 +296,15 @@ class ManageMenu extends Page
 
     public function indentItem(int $id): void
     {
-        $flat = MenuItem::flattenTree($this->menuTree);
-        $index = collect($flat)->search(fn (array $item): bool => (int) $item['id'] === $id);
+        $item = MenuItem::query()->find($id);
 
-        if ($index === false || $index === 0) {
+        if ($item === null) {
             return;
         }
 
-        $item = $flat[$index];
-        $previous = $flat[$index - 1];
-        $prospectiveParent = $this->prospectiveParentAfterIndent($flat, $index);
+        $previousSibling = $this->previousSibling($item);
 
-        if (
-            $item['depth'] > $previous['depth']
-            || $item['depth'] >= MenuItem::MAX_DEPTH
-            || $prospectiveParent === null
-            || ($prospectiveParent['type'] ?? null) !== MenuItem::TYPE_NODE
-        ) {
+        if ($previousSibling === null || ! $previousSibling->isNode()) {
             Notification::make()
                 ->title(__('filament-menu::menu.errors.cannot_indent'))
                 ->warning()
@@ -321,170 +313,115 @@ class ManageMenu extends Page
             return;
         }
 
-        $flat = $this->shiftBlockDepth($flat, $index, 1);
-        $this->persistFlatOrder($flat);
+        if ($previousSibling->depth() + 1 + $item->subtreeDepth() > MenuItem::MAX_DEPTH) {
+            Notification::make()
+                ->title(__('filament-menu::menu.errors.cannot_indent'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $oldParentId = $item->parent_id;
+
+        DB::transaction(function () use ($item, $previousSibling, $oldParentId): void {
+            $nextSort = (int) $this->siblingsQuery($previousSibling->id)->max('sort_order');
+
+            $item->update([
+                'parent_id' => $previousSibling->id,
+                'sort_order' => $nextSort + 1,
+            ]);
+
+            $this->resequenceChildren($oldParentId);
+            $this->resequenceChildren($previousSibling->id);
+        });
+
+        $this->loadTree();
     }
 
     public function outdentItem(int $id): void
     {
-        $flat = MenuItem::flattenTree($this->menuTree);
-        $index = collect($flat)->search(fn (array $item): bool => (int) $item['id'] === $id);
+        $item = MenuItem::query()->find($id);
 
-        if ($index === false) {
+        if ($item === null || $item->parent_id === null) {
             return;
         }
 
-        $rootDepth = (int) $flat[$index]['depth'];
+        $parent = MenuItem::query()->find($item->parent_id);
 
-        if ($rootDepth <= 1) {
+        if ($parent === null) {
             return;
         }
 
-        [$start, $end] = $this->blockRange($flat, $index);
-        $parentIndex = $this->parentIndex($flat, $start, $rootDepth);
+        $grandparentId = $parent->parent_id;
+        $isFirstChild = $this->previousSibling($item) === null;
 
-        if ($parentIndex === null) {
-            return;
-        }
+        DB::transaction(function () use ($item, $parent, $grandparentId, $isFirstChild): void {
+            // First child: place before former parent so following siblings keep their place.
+            // Otherwise: place immediately after former parent among its siblings.
+            $targetSort = $isFirstChild
+                ? (int) $parent->sort_order
+                : (int) $parent->sort_order + 1;
 
-        $blockLength = $end - $start + 1;
-        $block = array_slice($flat, $start, $blockLength);
+            $this->siblingsQuery($grandparentId)
+                ->where('sort_order', '>=', $targetSort)
+                ->increment('sort_order');
 
-        foreach ($block as $offset => $blockItem) {
-            $block[$offset]['depth'] = max(1, (int) $blockItem['depth'] - 1);
-        }
+            $item->update([
+                'parent_id' => $grandparentId,
+                'sort_order' => $targetSort,
+            ]);
 
-        $insertAt = $this->subtreeEnd($flat, $parentIndex) + 1;
+            $this->resequenceChildren($parent->id);
+            $this->resequenceChildren($grandparentId);
+        });
 
-        array_splice($flat, $start, $blockLength);
+        $this->loadTree();
+    }
 
-        if ($start < $insertAt) {
-            $insertAt -= $blockLength;
-        }
-
-        array_splice($flat, $insertAt, 0, $block);
-
-        $this->persistFlatOrder($flat);
+    protected function previousSibling(MenuItem $item): ?MenuItem
+    {
+        return $this->siblingsQuery($item->parent_id)
+            ->where(function ($query) use ($item): void {
+                $query->where('sort_order', '<', $item->sort_order)
+                    ->orWhere(function ($query) use ($item): void {
+                        $query->where('sort_order', $item->sort_order)
+                            ->where('id', '<', $item->id);
+                    });
+            })
+            ->orderByDesc('sort_order')
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $flat
+     * @return \Illuminate\Database\Eloquent\Builder<MenuItem>
      */
-    protected function parentIndex(array $flat, int $index, int $depth): ?int
+    protected function siblingsQuery(?int $parentId)
     {
-        for ($i = $index - 1; $i >= 0; $i--) {
-            if ((int) $flat[$i]['depth'] === $depth - 1) {
-                return $i;
+        $query = MenuItem::query();
+
+        if ($parentId === null) {
+            $query->whereNull('parent_id');
+        } else {
+            $query->where('parent_id', $parentId);
+        }
+
+        return $query;
+    }
+
+    protected function resequenceChildren(?int $parentId): void
+    {
+        $siblings = $this->siblingsQuery($parentId)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($siblings as $index => $sibling) {
+            if ((int) $sibling->sort_order !== $index) {
+                $sibling->update(['sort_order' => $index]);
             }
         }
-
-        return null;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $flat
-     */
-    protected function subtreeEnd(array $flat, int $index): int
-    {
-        $depth = (int) $flat[$index]['depth'];
-        $end = $index;
-
-        for ($i = $index + 1; $i < count($flat); $i++) {
-            if ((int) $flat[$i]['depth'] <= $depth) {
-                break;
-            }
-
-            $end = $i;
-        }
-
-        return $end;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $flat
-     * @return array{0: int, 1: int}
-     */
-    protected function blockRange(array $flat, int $index): array
-    {
-        $rootDepth = (int) $flat[$index]['depth'];
-        $end = $index;
-
-        // Only node pages carry their descendants when shifting levels.
-        if (($flat[$index]['type'] ?? null) === MenuItem::TYPE_NODE) {
-            for ($i = $index + 1; $i < count($flat); $i++) {
-                if ((int) $flat[$i]['depth'] <= $rootDepth) {
-                    break;
-                }
-
-                $end = $i;
-            }
-        }
-
-        return [$index, $end];
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $flat
-     * @return array<int, array<string, mixed>>
-     */
-    protected function shiftBlockDepth(array $flat, int $index, int $delta): array
-    {
-        [$start, $end] = $this->blockRange($flat, $index);
-
-        for ($i = $start; $i <= $end; $i++) {
-            $flat[$i]['depth'] = max(1, min(MenuItem::MAX_DEPTH, (int) $flat[$i]['depth'] + $delta));
-        }
-
-        return $flat;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $flat
-     */
-    protected function persistFlatOrder(array $flat): void
-    {
-        $this->saveOrder($this->flatToTree($flat));
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $flat
-     * @return array<int, array{id: int, children: array<int, mixed>}>
-     */
-    protected function flatToTree(array $flat): array
-    {
-        $ids = [];
-        $parentIds = [];
-        $stack = [];
-
-        foreach ($flat as $item) {
-            $id = (int) $item['id'];
-            $depth = (int) $item['depth'];
-
-            while ($stack !== [] && $stack[array_key_last($stack)]['depth'] >= $depth) {
-                array_pop($stack);
-            }
-
-            $parentIds[$id] = $stack === [] ? null : $stack[array_key_last($stack)]['id'];
-            $ids[] = $id;
-            $stack[] = ['depth' => $depth, 'id' => $id];
-        }
-
-        $build = function (?int $parentId) use (&$build, $ids, $parentIds): array {
-            $children = [];
-
-            foreach ($ids as $id) {
-                if ($parentIds[$id] === $parentId) {
-                    $children[] = [
-                        'id' => $id,
-                        'children' => $build($id),
-                    ];
-                }
-            }
-
-            return $children;
-        };
-
-        return $build(null);
     }
 
     public function saveOrder(array $order): void
@@ -789,29 +726,6 @@ class ManageMenu extends Page
         }
 
         return $data;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $flat
-     * @return array<string, mixed>|null
-     */
-    protected function prospectiveParentAfterIndent(array $flat, int $index): ?array
-    {
-        $depth = (int) $flat[$index]['depth'];
-
-        for ($i = $index - 1; $i >= 0; $i--) {
-            $candidateDepth = (int) $flat[$i]['depth'];
-
-            if ($candidateDepth < $depth) {
-                return null;
-            }
-
-            if ($candidateDepth === $depth) {
-                return $flat[$i];
-            }
-        }
-
-        return null;
     }
 
     /**
