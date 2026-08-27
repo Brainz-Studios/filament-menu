@@ -198,23 +198,28 @@
                 return;
             }
 
-            let anchor = parent;
+            let insertAfter = parent;
             let cursor = parent.nextElementSibling;
 
-            while (cursor && ! dragBlock.includes(cursor) && Number(cursor.dataset.depth || 1) > parentDepth) {
-                anchor = cursor;
+            while (cursor) {
+                if (dragBlock.includes(cursor)) {
+                    cursor = cursor.nextElementSibling;
+                    continue;
+                }
+
+                if (Number(cursor.dataset.depth || 1) <= parentDepth) {
+                    break;
+                }
+
+                insertAfter = cursor;
                 cursor = cursor.nextElementSibling;
             }
 
-            if (anchor.nextElementSibling === item) {
-                return;
-            }
-
-            let insertAfter = anchor;
+            let anchor = insertAfter;
 
             dragBlock.forEach((el) => {
-                insertAfter.after(el);
-                insertAfter = el;
+                anchor.after(el);
+                anchor = el;
             });
         };
 

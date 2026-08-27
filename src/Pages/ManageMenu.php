@@ -334,53 +334,70 @@ class ManageMenu extends Page
             return;
         }
 
-        $item = $flat[$index];
-        $rootDepth = (int) $item['depth'];
+        $rootDepth = (int) $flat[$index]['depth'];
 
         if ($rootDepth <= 1) {
             return;
         }
 
         [$start, $end] = $this->blockRange($flat, $index);
-
-        $parentIndex = null;
-
-        for ($i = $start - 1; $i >= 0; $i--) {
-            if ((int) $flat[$i]['depth'] === $rootDepth - 1) {
-                $parentIndex = $i;
-                break;
-            }
-        }
+        $parentIndex = $this->parentIndex($flat, $start, $rootDepth);
 
         if ($parentIndex === null) {
             return;
         }
 
-        $parentDepth = (int) $flat[$parentIndex]['depth'];
-        $parentEnd = $parentIndex;
-
-        for ($i = $parentIndex + 1; $i < count($flat); $i++) {
-            if ((int) $flat[$i]['depth'] <= $parentDepth) {
-                break;
-            }
-
-            $parentEnd = $i;
-        }
-
-        $block = array_slice($flat, $start, $end - $start + 1);
-        array_splice($flat, $start, $end - $start + 1);
-
-        if ($parentEnd >= $start) {
-            $parentEnd -= ($end - $start + 1);
-        }
+        $blockLength = $end - $start + 1;
+        $block = array_slice($flat, $start, $blockLength);
 
         foreach ($block as $offset => $blockItem) {
             $block[$offset]['depth'] = max(1, (int) $blockItem['depth'] - 1);
         }
 
-        array_splice($flat, $parentEnd + 1, 0, $block);
+        $insertAt = $this->subtreeEnd($flat, $parentIndex) + 1;
+
+        array_splice($flat, $start, $blockLength);
+
+        if ($start < $insertAt) {
+            $insertAt -= $blockLength;
+        }
+
+        array_splice($flat, $insertAt, 0, $block);
 
         $this->persistFlatOrder($flat);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $flat
+     */
+    protected function parentIndex(array $flat, int $index, int $depth): ?int
+    {
+        for ($i = $index - 1; $i >= 0; $i--) {
+            if ((int) $flat[$i]['depth'] === $depth - 1) {
+                return $i;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $flat
+     */
+    protected function subtreeEnd(array $flat, int $index): int
+    {
+        $depth = (int) $flat[$index]['depth'];
+        $end = $index;
+
+        for ($i = $index + 1; $i < count($flat); $i++) {
+            if ((int) $flat[$i]['depth'] <= $depth) {
+                break;
+            }
+
+            $end = $i;
+        }
+
+        return $end;
     }
 
     /**
