@@ -14,7 +14,7 @@ return new class extends Migration
             $table->json('label');
             $table->json('slug')->nullable();
             $table->string('type')->default('internal');
-            $table->string('link')->default('');
+            $table->json('link')->nullable();
             $table->string('target')->default('_self');
             $table->string('icon')->nullable();
             $table->integer('sort_order')->default(0);

@@ -28,7 +28,7 @@ class MenuItem extends Model
 
     public const TYPE_NODE = 'node';
 
-    public array $translatable = ['label', 'slug'];
+    public array $translatable = ['label', 'slug', 'link'];
 
     protected static function newFactory(): MenuItemFactory
     {
@@ -102,6 +102,23 @@ class MenuItem extends Model
         return $query->orderBy('sort_order')->orderBy('id');
     }
 
+    /**
+     * @param  Builder<MenuItem>  $query
+     * @return Builder<MenuItem>
+     */
+    public function scopeWhereLink(Builder $query, string $link): Builder
+    {
+        /** @var list<string> $locales */
+        $locales = config('filament-menu.locales', ['cs', 'en']);
+
+        return $query->where(function (Builder $builder) use ($link, $locales): void {
+            foreach ($locales as $index => $locale) {
+                $method = $index === 0 ? 'where' : 'orWhere';
+                $builder->{$method}("link->{$locale}", $link);
+            }
+        });
+    }
+
     public function depth(): int
     {
         $depth = 1;
@@ -139,6 +156,9 @@ class MenuItem extends Model
                 $data = $item->toArray();
                 $data['label'] = $item->getTranslations('label');
                 $data['slug'] = $item->getTranslations('slug');
+                $data['link'] = (string) ($item->getTranslation('link', app()->getLocale())
+                    ?: collect($item->getTranslations('link'))->first(fn ($value): bool => filled($value))
+                    ?: '');
                 $data['children'] = static::nestCollection($items, $item->id);
 
                 return $data;

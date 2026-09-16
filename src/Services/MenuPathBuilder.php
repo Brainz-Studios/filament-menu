@@ -41,7 +41,19 @@ class MenuPathBuilder
         $locales = $this->registry->locales();
 
         if ($item->type === MenuItem::TYPE_EXTERNAL) {
-            return $item->link;
+            $url = $item->getTranslation('link', $locale);
+
+            if (! filled($url)) {
+                foreach ($locales as $fallback) {
+                    $url = $item->getTranslation('link', $fallback);
+
+                    if (filled($url)) {
+                        break;
+                    }
+                }
+            }
+
+            return filled($url) ? $url : null;
         }
 
         $chain = $this->ancestorChain($item);
@@ -100,7 +112,7 @@ class MenuPathBuilder
 
             $menuItem = MenuItem::query()
                 ->where('type', 'internal')
-                ->where('link', $link)
+                ->whereLink($link)
                 ->where('is_published', true)
                 ->first();
 
@@ -352,7 +364,7 @@ class MenuPathBuilder
 
             $menuItem = MenuItem::query()
                 ->where('type', 'internal')
-                ->where('link', $link)
+                ->whereLink($link)
                 ->where('is_published', true)
                 ->first();
 

@@ -19,7 +19,7 @@ class MenuItemFactory extends Factory
             'label' => ['cs' => fake('cs_CZ')->word(), 'en' => fake()->word()],
             'slug' => ['cs' => fake('cs_CZ')->slug(), 'en' => fake()->slug()],
             'type' => fake()->randomElement(['internal', 'external']),
-            'link' => '/'.fake()->slug(),
+            'link' => ['cs' => '/'.fake()->slug(), 'en' => '/'.fake()->slug()],
             'target' => '_self',
             'icon' => null,
             'sort_order' => fake()->numberBetween(0, 100),

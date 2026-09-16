@@ -69,6 +69,7 @@ class ManageMenu extends Page
             'linkable_type' => null,
             'target' => '_self',
             'is_published' => true,
+            'external_link' => [],
         ]);
         $this->loadTree();
     }
@@ -108,7 +109,7 @@ class ManageMenu extends Page
                     ->afterStateUpdated(function (Set $set): void {
                         $set('linkable_type', null);
                         $set('link', null);
-                        $set('external_link', null);
+                        $set('external_link', []);
                     }),
                 TranslatableTabs::make($this->labelSlugTabs()),
                 Select::make('linkable_type')
@@ -141,13 +142,6 @@ class ManageMenu extends Page
                     ->visible(fn (): bool => ($this->data['type'] ?? null) === MenuItem::TYPE_INTERNAL && filled($this->currentLinkableType()))
                     ->dehydrated(fn (): bool => ($this->data['type'] ?? null) === MenuItem::TYPE_INTERNAL)
                     ->key(fn (): string => 'menu-link-target-'.($this->currentLinkableType() ?? 'none')),
-                TextInput::make('external_link')
-                    ->label(__('filament-menu::menu.fields.url'))
-                    ->url()
-                    ->required()
-                    ->placeholder('https://example.com')
-                    ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL)
-                    ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL),
                 Select::make('target')
                     ->label(__('filament-menu::menu.fields.target_window'))
                     ->options([
@@ -201,15 +195,21 @@ class ManageMenu extends Page
         $this->editing = true;
 
         $isExternal = $item->type === MenuItem::TYPE_EXTERNAL;
+        $linkTranslations = $item->getTranslations('link');
+        $locales = config('filament-menu.locales', ['cs', 'en']);
+        $primaryLocale = $locales[0] ?? 'cs';
+        $internalLink = ! $isExternal
+            ? (string) ($linkTranslations[$primaryLocale] ?? collect($linkTranslations)->first() ?? '')
+            : null;
 
         $this->form->fill([
             'parent_id' => $item->parent_id,
             'label' => $item->getTranslations('label'),
             'slug' => $item->getTranslations('slug'),
             'type' => $item->type,
-            'linkable_type' => MenuItem::parseInternalLink($item->link)['type'] ?? null,
-            'link' => $isExternal ? null : $item->link,
-            'external_link' => $isExternal ? $item->link : null,
+            'linkable_type' => MenuItem::parseInternalLink($internalLink)['type'] ?? null,
+            'link' => $internalLink,
+            'external_link' => $isExternal ? $linkTranslations : [],
             'target' => $item->target,
             'is_published' => $item->is_published,
         ]);
@@ -505,7 +505,7 @@ class ManageMenu extends Page
             'label' => ['cs' => '', 'en' => ''],
             'linkable_type' => null,
             'link' => null,
-            'external_link' => null,
+            'external_link' => [],
         ]);
     }
 
@@ -647,6 +647,13 @@ class ManageMenu extends Page
                     ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_NODE)
                     ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_NODE)
                     ->required(fn (Get $get): bool => $get('type') === MenuItem::TYPE_NODE),
+                TextInput::make("external_link.{$locale}")
+                    ->label(__('filament-menu::menu.fields.url'))
+                    ->url()
+                    ->placeholder('https://example.com')
+                    ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL)
+                    ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL)
+                    ->required(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL),
             ];
         }
 
@@ -698,20 +705,48 @@ class ManageMenu extends Page
     {
         unset($data['linkable_type']);
 
+        /** @var list<string> $locales */
+        $locales = config('filament-menu.locales', ['cs', 'en']);
+
         if (($data['type'] ?? null) === MenuItem::TYPE_EXTERNAL) {
-            $data['link'] = is_string($data['external_link'] ?? null) ? $data['external_link'] : '';
+            $external = is_array($data['external_link'] ?? null) ? $data['external_link'] : [];
+            $translations = [];
+
+            foreach ($locales as $locale) {
+                $translations[$locale] = is_string($external[$locale] ?? null)
+                    ? $external[$locale]
+                    : '';
+            }
+
+            $data['link'] = $translations;
+        } elseif (($data['type'] ?? null) === MenuItem::TYPE_INTERNAL) {
+            $link = is_string($data['link'] ?? null) ? $data['link'] : '';
+            $translations = [];
+
+            foreach ($locales as $locale) {
+                $translations[$locale] = $link;
+            }
+
+            $data['link'] = $translations;
+        } else {
+            $translations = [];
+
+            foreach ($locales as $locale) {
+                $translations[$locale] = '';
+            }
+
+            $data['link'] = $translations;
         }
 
         unset($data['external_link']);
 
         if (($data['type'] ?? null) === MenuItem::TYPE_NODE) {
-            $data['link'] = '';
             $data['target'] = '_self';
 
             $label = $data['label'] ?? [];
             $slug = $data['slug'] ?? [];
 
-            foreach (config('filament-menu.locales', ['cs', 'en']) as $locale) {
+            foreach ($locales as $locale) {
                 $labelValue = is_array($label) ? (string) ($label[$locale] ?? '') : '';
                 $slugValue = is_array($slug) ? (string) ($slug[$locale] ?? '') : '';
 

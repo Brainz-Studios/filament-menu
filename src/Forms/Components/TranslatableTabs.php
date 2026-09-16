@@ -16,7 +16,7 @@ final class TranslatableTabs
             ->tabs(
                 collect($localeSchemas)
                     ->map(
-                        fn (array $schema, string $locale): Tab => Tab::make(strtoupper($locale))
+                        fn (array $schema, string $locale): Tab => Tab::make(self::localeLabel($locale))
                             ->key($locale)
                             ->schema($schema)
                     )
@@ -24,5 +24,13 @@ final class TranslatableTabs
                     ->all()
             )
             ->columnSpanFull();
+    }
+
+    public static function localeLabel(string $locale): string
+    {
+        /** @var array<string, string> $labels */
+        $labels = config('filament-menu.locale_labels', []);
+
+        return $labels[$locale] ?? strtoupper($locale);
     }
 }
