@@ -2,7 +2,7 @@
     "name": "brainz-studios/filament-menu",
     "description": "Filament menu management with path building, global slug guard, and GraphQL.",
     "type": "library",
-    "version": "1.0.9",
+    "version": "1.0.7.1",
     "license": "proprietary",
     "authors": [
         {
