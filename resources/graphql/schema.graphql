@@ -16,19 +16,29 @@ type MenuItem {
     label: String!
     slug: LocalizedString
     type: String!
-    link: String!
+    link: LocalizedString @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveLocalizedLink")
     url: String @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveMenuPath")
     linkable: MenuLinkable @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveMenuLinkable")
     target: String!
+    cta: MenuItemCta @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveMenuItemCta")
     sort_order: Int!
     is_published: Boolean!
     created_at: DateTime!
     updated_at: DateTime!
 }
 
+type MenuItemCta {
+    type: String!
+    link: String!
+    url: String
+    target: String!
+    linkable: MenuLinkable
+}
+
 type MenuNode {
     id: ID!
     label: String!
+    cta: MenuItemCta @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveMenuItemCta")
     slug: LocalizedString
     menu_url: String @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveEntityMenuUrl")
     breadcrumbs: Breadcrumbs! @field(resolver: "BrainzStudios\\FilamentMenu\\GraphQL\\Resolvers\\ResolveEntityBreadcrumbs")

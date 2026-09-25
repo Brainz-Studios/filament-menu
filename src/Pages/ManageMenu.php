@@ -3,20 +3,22 @@
 namespace BrainzStudios\FilamentMenu\Pages;
 
 use BrainzStudios\FilamentMenu\Forms\Components\TranslatableTabs;
-use BrainzStudios\FilamentMenu\Support\AutoSlug;
 use BrainzStudios\FilamentMenu\Models\MenuItem;
 use BrainzStudios\FilamentMenu\Services\GlobalSlugGuard;
 use BrainzStudios\FilamentMenu\Services\LinkableRegistry;
 use BrainzStudios\FilamentMenu\Services\MenuPathBuilder;
+use BrainzStudios\FilamentMenu\Support\AutoSlug;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use UnitEnum;
@@ -70,6 +72,9 @@ class ManageMenu extends Page
             'target' => '_self',
             'is_published' => true,
             'external_link' => [],
+            'cta_type' => null,
+            'cta_target' => '_self',
+            'cta_external_link' => [],
         ]);
         $this->loadTree();
     }
@@ -95,6 +100,7 @@ class ManageMenu extends Page
                     ->label(__('filament-menu::menu.fields.parent'))
                     ->options(fn (): array => $this->parentOptions())
                     ->searchable()
+                    ->live()
                     ->nullable(),
                 Select::make('type')
                     ->label(__('filament-menu::menu.fields.link_type'))
@@ -110,6 +116,11 @@ class ManageMenu extends Page
                         $set('linkable_type', null);
                         $set('link', null);
                         $set('external_link', []);
+                        $set('cta_type', null);
+                        $set('cta_linkable_type', null);
+                        $set('cta_link', null);
+                        $set('cta_external_link', []);
+                        $set('cta_target', '_self');
                     }),
                 TranslatableTabs::make($this->labelSlugTabs()),
                 Select::make('linkable_type')
@@ -150,6 +161,54 @@ class ManageMenu extends Page
                     ])
                     ->default('_self')
                     ->visible(fn (Get $get): bool => in_array($get('type'), [MenuItem::TYPE_INTERNAL, MenuItem::TYPE_EXTERNAL], true)),
+                Section::make(__('filament-menu::menu.fields.cta'))
+                    ->schema([
+                        Select::make('cta_type')
+                            ->label(__('filament-menu::menu.fields.cta_type'))
+                            ->placeholder(__('filament-menu::menu.fields.cta_type_options.none'))
+                            ->options([
+                                MenuItem::TYPE_INTERNAL => __('filament-menu::menu.fields.link_type_options.internal'),
+                                MenuItem::TYPE_EXTERNAL => __('filament-menu::menu.fields.link_type_options.external'),
+                            ])
+                            ->nullable()
+                            ->live()
+                            ->afterStateUpdated(function (Set $set): void {
+                                $set('cta_linkable_type', null);
+                                $set('cta_link', null);
+                                $set('cta_external_link', []);
+                            }),
+                        Select::make('cta_linkable_type')
+                            ->label(__('filament-menu::menu.fields.linkable_type'))
+                            ->options(fn (): array => $this->linkableTypeOptions())
+                            ->required()
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('cta_type') === MenuItem::TYPE_INTERNAL)
+                            ->afterStateUpdated(function (Set $set): void {
+                                $set('cta_link', null);
+                            }),
+                        Select::make('cta_link')
+                            ->label(__('filament-menu::menu.fields.link_target'))
+                            ->options(fn (): array => $this->internalLinkOptions($this->currentCtaLinkableType()))
+                            ->searchable()
+                            ->native(false)
+                            ->getOptionLabelUsing(fn ($value): ?string => $this->resolveLinkOptionLabel(
+                                is_string($value) ? $value : null,
+                            ))
+                            ->required()
+                            ->visible(fn (): bool => ($this->data['cta_type'] ?? null) === MenuItem::TYPE_INTERNAL && filled($this->currentCtaLinkableType()))
+                            ->dehydrated(fn (): bool => ($this->data['cta_type'] ?? null) === MenuItem::TYPE_INTERNAL)
+                            ->key(fn (): string => 'menu-cta-link-target-'.($this->currentCtaLinkableType() ?? 'none')),
+                        Select::make('cta_target')
+                            ->label(__('filament-menu::menu.fields.target_window'))
+                            ->options([
+                                '_self' => __('filament-menu::menu.fields.target_options._self'),
+                                '_blank' => __('filament-menu::menu.fields.target_options._blank'),
+                            ])
+                            ->default('_self')
+                            ->visible(fn (Get $get): bool => in_array($get('cta_type'), [MenuItem::TYPE_INTERNAL, MenuItem::TYPE_EXTERNAL], true)),
+                    ])
+                    ->visible(fn (Get $get): bool => $this->nodeCtaIsVisible($get))
+                    ->columnSpanFull(),
                 Toggle::make('is_published')
                     ->label(__('filament-menu::menu.fields.is_published'))
                     ->default(true),
@@ -212,6 +271,7 @@ class ManageMenu extends Page
             'external_link' => $isExternal ? $linkTranslations : [],
             'target' => $item->target,
             'is_published' => $item->is_published,
+            ...$this->ctaFormState($item),
         ]);
     }
 
@@ -286,6 +346,9 @@ class ManageMenu extends Page
             'linkable_type' => null,
             'target' => '_self',
             'is_published' => true,
+            'cta_type' => null,
+            'cta_target' => '_self',
+            'cta_external_link' => [],
         ]);
     }
 
@@ -395,7 +458,7 @@ class ManageMenu extends Page
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<MenuItem>
+     * @return Builder<MenuItem>
      */
     protected function siblingsQuery(?int $parentId)
     {
@@ -506,6 +569,11 @@ class ManageMenu extends Page
             'linkable_type' => null,
             'link' => null,
             'external_link' => [],
+            'cta_type' => null,
+            'cta_linkable_type' => null,
+            'cta_link' => null,
+            'cta_external_link' => [],
+            'cta_target' => '_self',
         ]);
     }
 
@@ -654,6 +722,13 @@ class ManageMenu extends Page
                     ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL)
                     ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL)
                     ->required(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL),
+                TextInput::make("cta_external_link.{$locale}")
+                    ->label(__('filament-menu::menu.fields.cta_url'))
+                    ->url()
+                    ->placeholder('https://example.com')
+                    ->visible(fn (Get $get): bool => $this->nodeCtaIsVisible($get) && $get('cta_type') === MenuItem::TYPE_EXTERNAL)
+                    ->dehydrated(fn (Get $get): bool => $this->nodeCtaIsVisible($get) && $get('cta_type') === MenuItem::TYPE_EXTERNAL)
+                    ->required(fn (Get $get): bool => $this->nodeCtaIsVisible($get) && $get('cta_type') === MenuItem::TYPE_EXTERNAL),
             ];
         }
 
@@ -740,6 +815,8 @@ class ManageMenu extends Page
 
         unset($data['external_link']);
 
+        $data = $this->normalizeNodeCta($data, $locales);
+
         if (($data['type'] ?? null) === MenuItem::TYPE_NODE) {
             $data['target'] = '_self';
 
@@ -761,6 +838,105 @@ class ManageMenu extends Page
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  list<string>  $locales
+     * @return array<string, mixed>
+     */
+    protected function normalizeNodeCta(array $data, array $locales): array
+    {
+        unset($data['cta_linkable_type']);
+
+        $parentId = $data['parent_id'] ?? null;
+        $allowed = ($data['type'] ?? null) === MenuItem::TYPE_NODE
+            && MenuItem::allowsNodeCta($this->depthForParentId($parentId));
+        $ctaType = $data['cta_type'] ?? null;
+
+        if (! $allowed || ! in_array($ctaType, [MenuItem::TYPE_INTERNAL, MenuItem::TYPE_EXTERNAL], true)) {
+            $data['cta_type'] = null;
+            $data['cta_link'] = null;
+            $data['cta_target'] = '_self';
+            unset($data['cta_external_link']);
+
+            return $data;
+        }
+
+        if ($ctaType === MenuItem::TYPE_EXTERNAL) {
+            $external = is_array($data['cta_external_link'] ?? null) ? $data['cta_external_link'] : [];
+            $translations = [];
+
+            foreach ($locales as $locale) {
+                $translations[$locale] = is_string($external[$locale] ?? null)
+                    ? $external[$locale]
+                    : '';
+            }
+
+            $data['cta_link'] = $translations;
+        } else {
+            $link = is_string($data['cta_link'] ?? null) ? $data['cta_link'] : '';
+            $translations = [];
+
+            foreach ($locales as $locale) {
+                $translations[$locale] = $link;
+            }
+
+            $data['cta_link'] = $translations;
+        }
+
+        $target = $data['cta_target'] ?? '_self';
+        $data['cta_target'] = $target === '_blank' ? '_blank' : '_self';
+        $data['cta_type'] = $ctaType;
+        unset($data['cta_external_link']);
+
+        return $data;
+    }
+
+    protected function nodeCtaIsVisible(Get $get): bool
+    {
+        return $get('type') === MenuItem::TYPE_NODE
+            && MenuItem::allowsNodeCta($this->depthForParentId($get('parent_id')));
+    }
+
+    protected function depthForParentId(mixed $parentId): int
+    {
+        if ($parentId === null || $parentId === '') {
+            return 1;
+        }
+
+        $parent = MenuItem::query()->find((int) $parentId);
+
+        return $parent instanceof MenuItem ? $parent->depth() + 1 : 1;
+    }
+
+    protected function currentCtaLinkableType(): ?string
+    {
+        $type = $this->data['cta_linkable_type'] ?? null;
+
+        return is_string($type) && $type !== '' ? $type : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function ctaFormState(MenuItem $item): array
+    {
+        $locales = config('filament-menu.locales', ['cs', 'en']);
+        $primaryLocale = $locales[0] ?? 'cs';
+        $translations = $item->getTranslations('cta_link');
+        $isExternal = $item->cta_type === MenuItem::TYPE_EXTERNAL;
+        $internalLink = $item->cta_type === MenuItem::TYPE_INTERNAL
+            ? (string) ($translations[$primaryLocale] ?? collect($translations)->first() ?? '')
+            : null;
+
+        return [
+            'cta_type' => $item->cta_type,
+            'cta_linkable_type' => MenuItem::parseInternalLink($internalLink)['type'] ?? null,
+            'cta_link' => $internalLink,
+            'cta_external_link' => $isExternal ? $translations : [],
+            'cta_target' => $item->cta_target ?: '_self',
+        ];
     }
 
     /**

@@ -62,6 +62,12 @@ return [
         'link_target' => 'Cíl odkazu',
         'link_target_empty' => 'Pro tento datový typ nejsou žádné položky.',
         'url' => 'URL',
+        'cta' => 'CTA',
+        'cta_type' => 'CTA',
+        'cta_url' => 'CTA URL',
+        'cta_type_options' => [
+            'none' => 'Bez CTA',
+        ],
         'target_window' => 'Cílové okno',
         'is_published' => 'Publikováno',
         'link_type_options' => [

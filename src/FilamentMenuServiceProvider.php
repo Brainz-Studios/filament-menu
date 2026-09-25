@@ -18,6 +18,7 @@ class FilamentMenuServiceProvider extends PackageServiceProvider
                 'create_menu_items_table',
                 'drop_seo_columns_from_menu_items_table',
                 'make_menu_item_link_translatable',
+                'add_cta_to_menu_items_table',
             );
     }
 

@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Translatable\HasTranslations;
 
-#[Fillable(['parent_id', 'label', 'slug', 'type', 'link', 'target', 'icon', 'sort_order', 'is_published'])]
+#[Fillable(['parent_id', 'label', 'slug', 'type', 'link', 'target', 'cta_type', 'cta_link', 'cta_target', 'icon', 'sort_order', 'is_published'])]
 class MenuItem extends Model
 {
     /** @use HasFactory<MenuItemFactory> */
@@ -28,7 +28,46 @@ class MenuItem extends Model
 
     public const TYPE_NODE = 'node';
 
-    public array $translatable = ['label', 'slug', 'link'];
+    public array $translatable = ['label', 'slug', 'link', 'cta_link'];
+
+    /**
+     * Whether a node page at the given depth may edit a CTA.
+     *
+     * Config `filament-menu.node_cta_level`: 0 off, -1 every level, N the first N levels.
+     */
+    public static function allowsNodeCta(int $depth): bool
+    {
+        $level = (int) config('filament-menu.node_cta_level', 0);
+
+        if ($level === 0 || $depth < 1) {
+            return false;
+        }
+
+        if ($level < 0) {
+            return true;
+        }
+
+        return $depth <= $level;
+    }
+
+    public function localizedCtaLink(?string $locale = null): ?string
+    {
+        $locale ??= app()->getLocale();
+
+        /** @var list<string> $locales */
+        $locales = config('filament-menu.locales', ['cs', 'en']);
+        $candidates = array_values(array_unique([$locale, ...$locales]));
+
+        foreach ($candidates as $candidateLocale) {
+            $value = $this->getTranslation('cta_link', $candidateLocale, false);
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
 
     protected static function newFactory(): MenuItemFactory
     {

@@ -62,6 +62,12 @@ return [
         'link_target' => 'Link target',
         'link_target_empty' => 'No items are available for this content type.',
         'url' => 'URL',
+        'cta' => 'CTA',
+        'cta_type' => 'CTA',
+        'cta_url' => 'CTA URL',
+        'cta_type_options' => [
+            'none' => 'No CTA',
+        ],
         'target_window' => 'Target window',
         'is_published' => 'Published',
         'link_type_options' => [

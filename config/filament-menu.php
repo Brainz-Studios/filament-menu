@@ -36,6 +36,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Node page CTA
+    |--------------------------------------------------------------------------
+    |
+    | Which menu levels may edit a call-to-action on a node page.
+    |
+    |  0  CTA is disabled
+    |  1  first level only
+    |  2  first and second level
+    | -1  every level
+    |
+    */
+    'node_cta_level' => 0,
+
+    /*
+    |--------------------------------------------------------------------------
     | Optional label resolver for Filament internal-link options
     |--------------------------------------------------------------------------
     |
