@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Translatable\HasTranslations;
 
-#[Fillable(['parent_id', 'label', 'slug', 'type', 'link', 'target', 'cta_type', 'cta_link', 'cta_target', 'icon', 'sort_order', 'is_published'])]
+#[Fillable(['parent_id', 'label', 'slug', 'type', 'link', 'target', 'cta_type', 'cta_link', 'cta_label', 'cta_target', 'icon', 'sort_order', 'is_published'])]
 class MenuItem extends Model
 {
     /** @use HasFactory<MenuItemFactory> */
@@ -28,7 +28,7 @@ class MenuItem extends Model
 
     public const TYPE_NODE = 'node';
 
-    public array $translatable = ['label', 'slug', 'link', 'cta_link'];
+    public array $translatable = ['label', 'slug', 'link', 'cta_link', 'cta_label'];
 
     /**
      * Whether a node page at the given depth may edit a CTA.
@@ -67,6 +67,34 @@ class MenuItem extends Model
         }
 
         return null;
+    }
+
+    public function localizedCtaLabel(?string $locale = null): ?string
+    {
+        $locale ??= app()->getLocale();
+
+        /** @var list<string> $locales */
+        $locales = config('filament-menu.locales', ['cs', 'en']);
+        $candidates = array_values(array_unique([$locale, ...$locales]));
+
+        foreach ($candidates as $candidateLocale) {
+            $value = $this->getTranslation('cta_label', $candidateLocale, false);
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (MenuItem $item): void {
+            if ($item->cta_type !== self::TYPE_EXTERNAL) {
+                $item->attributes['cta_label'] = null;
+            }
+        });
     }
 
     protected static function newFactory(): MenuItemFactory

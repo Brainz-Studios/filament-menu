@@ -74,6 +74,7 @@ class ManageMenu extends Page
             'external_link' => [],
             'cta_type' => null,
             'cta_target' => '_self',
+            'cta_label' => [],
             'cta_external_link' => [],
         ]);
         $this->loadTree();
@@ -119,6 +120,7 @@ class ManageMenu extends Page
                         $set('cta_type', null);
                         $set('cta_linkable_type', null);
                         $set('cta_link', null);
+                        $set('cta_label', []);
                         $set('cta_external_link', []);
                         $set('cta_target', '_self');
                     }),
@@ -175,6 +177,7 @@ class ManageMenu extends Page
                             ->afterStateUpdated(function (Set $set): void {
                                 $set('cta_linkable_type', null);
                                 $set('cta_link', null);
+                                $set('cta_label', []);
                                 $set('cta_external_link', []);
                             }),
                         Select::make('cta_linkable_type')
@@ -348,6 +351,7 @@ class ManageMenu extends Page
             'is_published' => true,
             'cta_type' => null,
             'cta_target' => '_self',
+            'cta_label' => [],
             'cta_external_link' => [],
         ]);
     }
@@ -572,6 +576,7 @@ class ManageMenu extends Page
             'cta_type' => null,
             'cta_linkable_type' => null,
             'cta_link' => null,
+            'cta_label' => [],
             'cta_external_link' => [],
             'cta_target' => '_self',
         ]);
@@ -722,6 +727,11 @@ class ManageMenu extends Page
                     ->visible(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL)
                     ->dehydrated(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL)
                     ->required(fn (Get $get): bool => $get('type') === MenuItem::TYPE_EXTERNAL),
+                TextInput::make("cta_label.{$locale}")
+                    ->label(__('filament-menu::menu.fields.cta_label'))
+                    ->visible(fn (Get $get): bool => $this->nodeCtaIsVisible($get) && $get('cta_type') === MenuItem::TYPE_EXTERNAL)
+                    ->dehydrated(fn (Get $get): bool => $this->nodeCtaIsVisible($get) && $get('cta_type') === MenuItem::TYPE_EXTERNAL)
+                    ->required(fn (Get $get): bool => $this->nodeCtaIsVisible($get) && $get('cta_type') === MenuItem::TYPE_EXTERNAL),
                 TextInput::make("cta_external_link.{$locale}")
                     ->label(__('filament-menu::menu.fields.cta_url'))
                     ->url()
@@ -857,6 +867,7 @@ class ManageMenu extends Page
         if (! $allowed || ! in_array($ctaType, [MenuItem::TYPE_INTERNAL, MenuItem::TYPE_EXTERNAL], true)) {
             $data['cta_type'] = null;
             $data['cta_link'] = null;
+            $data['cta_label'] = null;
             $data['cta_target'] = '_self';
             unset($data['cta_external_link']);
 
@@ -874,6 +885,17 @@ class ManageMenu extends Page
             }
 
             $data['cta_link'] = $translations;
+
+            $label = is_array($data['cta_label'] ?? null) ? $data['cta_label'] : [];
+            $labelTranslations = [];
+
+            foreach ($locales as $locale) {
+                $labelTranslations[$locale] = is_string($label[$locale] ?? null)
+                    ? $label[$locale]
+                    : '';
+            }
+
+            $data['cta_label'] = $labelTranslations;
         } else {
             $link = is_string($data['cta_link'] ?? null) ? $data['cta_link'] : '';
             $translations = [];
@@ -883,6 +905,7 @@ class ManageMenu extends Page
             }
 
             $data['cta_link'] = $translations;
+            $data['cta_label'] = null;
         }
 
         $target = $data['cta_target'] ?? '_self';
@@ -934,6 +957,7 @@ class ManageMenu extends Page
             'cta_type' => $item->cta_type,
             'cta_linkable_type' => MenuItem::parseInternalLink($internalLink)['type'] ?? null,
             'cta_link' => $internalLink,
+            'cta_label' => $isExternal ? $item->getTranslations('cta_label') : [],
             'cta_external_link' => $isExternal ? $translations : [],
             'cta_target' => $item->cta_target ?: '_self',
         ];

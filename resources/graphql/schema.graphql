@@ -29,6 +29,7 @@ type MenuItem {
 
 type MenuItemCta {
     type: String!
+    label: String
     link: String!
     url: String
     target: String!

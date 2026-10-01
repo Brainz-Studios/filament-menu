@@ -64,6 +64,7 @@ return [
         'url' => 'URL',
         'cta' => 'CTA',
         'cta_type' => 'CTA',
+        'cta_label' => 'Popisek CTA',
         'cta_url' => 'CTA URL',
         'cta_type_options' => [
             'none' => 'Bez CTA',

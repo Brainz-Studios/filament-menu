@@ -13,7 +13,7 @@ final class ResolveMenuItemCta
     ) {}
 
     /**
-     * @return array{type: string, link: string, url: ?string, target: string, linkable: ?Model}|null
+     * @return array{type: string, label: ?string, link: string, url: ?string, target: string, linkable: ?Model}|null
      */
     public function __invoke(MenuItem $menuItem): ?array
     {
@@ -38,6 +38,7 @@ final class ResolveMenuItemCta
         if ($type === MenuItem::TYPE_EXTERNAL) {
             return [
                 'type' => MenuItem::TYPE_EXTERNAL,
+                'label' => $menuItem->localizedCtaLabel(),
                 'link' => $link,
                 'url' => $link,
                 'target' => $target,
@@ -59,6 +60,7 @@ final class ResolveMenuItemCta
 
         return [
             'type' => MenuItem::TYPE_INTERNAL,
+            'label' => null,
             'link' => $link,
             'url' => $this->menuPathBuilder->pathForEntity($entity),
             'target' => $target,

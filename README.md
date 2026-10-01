@@ -58,7 +58,7 @@ Node pages can carry one call-to-action. `node_cta_level` controls which levels 
 - `2` — first and second level
 - `-1` — every level
 
-The CTA is an internal link (one content item, shared by all locales) or an external URL stored per locale.
+The CTA is an internal link (one content item, shared by all locales) or an external URL stored per locale. An external CTA also has a label per locale.
 
 Expected on linkable models:
 

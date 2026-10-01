@@ -23,6 +23,7 @@ class MenuItemFactory extends Factory
             'target' => '_self',
             'cta_type' => null,
             'cta_link' => null,
+            'cta_label' => null,
             'cta_target' => '_self',
             'icon' => null,
             'sort_order' => fake()->numberBetween(0, 100),
